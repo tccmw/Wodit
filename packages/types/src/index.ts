@@ -40,6 +40,13 @@ export interface MusicMood {
   seedGenres: string[];
 }
 
+export interface SpotifyPlaylistPreview {
+  provider: "spotify";
+  title: string;
+  externalUrl: string | null;
+  imageUrl: string | null;
+}
+
 export interface RecommendationResult {
   subjectiveTemp: number;
   reason: string;
@@ -52,4 +59,46 @@ export interface WeatherRecommendationResponse {
   location: Coordinates;
   weather: WeatherSnapshot;
   recommendation: RecommendationResult;
+  spotify: SpotifyPlaylistPreview | null;
+}
+
+export interface PersistedUserProfile {
+  email: string;
+  name: string | null;
+  image: string | null;
+  nickname: string;
+  sensitivity: number;
+  offset: number;
+  location: Coordinates;
+  regionName: string;
+  onboardingCompleted: boolean;
+  spotifyConnected: boolean;
+}
+
+export interface SyncUserRequest {
+  email: string;
+  name?: string | null;
+  image?: string | null;
+}
+
+export interface UpdateProfileRequest {
+  email: string;
+  nickname?: string;
+  sensitivity?: number;
+  offset?: number;
+  location?: Coordinates;
+  regionName?: string;
+  onboardingCompleted?: boolean;
+}
+
+export interface SubmitFeedbackRequest {
+  email: string;
+  status: FeedbackStatus;
+  weather: WeatherSnapshot;
+  location: Coordinates;
+  recommendation?: RecommendationResult | null;
+}
+
+export interface SubmitFeedbackResponse {
+  profile: PersistedUserProfile;
 }

@@ -2,7 +2,11 @@
 
 import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
-import type { WeatherRecommendationResponse } from "@wodit/types";
+import type {
+  SubmitFeedbackRequest,
+  SubmitFeedbackResponse,
+  WeatherRecommendationResponse
+} from "@wodit/types";
 import { SignOutButton } from "./auth-buttons";
 import { GlassCard } from "./dashboard/glass-card";
 import {
@@ -28,6 +32,7 @@ export function WoditDashboard({ user }: { user: DashboardUser }) {
     regionName,
     recentLocations,
     hydrate,
+    applyRemoteProfile,
     completeOnboarding,
     setSensitivity,
     setRegionName,
@@ -48,6 +53,34 @@ export function WoditDashboard({ user }: { user: DashboardUser }) {
   }, [hydrate, user]);
 
   useEffect(() => {
+    const controller = new AbortController();
+
+    void (async () => {
+      try {
+        const response = await fetch(`${apiBase}/users/sync`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            email: user.email,
+            name: user.name,
+            image: user.image
+          }),
+          signal: controller.signal
+        });
+
+        if (!response.ok) return;
+        applyRemoteProfile(await response.json());
+      } catch {
+        // keep local state when sync is unavailable
+      }
+    })();
+
+    return () => controller.abort();
+  }, [applyRemoteProfile, user.email, user.image, user.name]);
+
+  useEffect(() => {
     if (typeof window === "undefined") return;
 
     window.localStorage.setItem(
@@ -63,10 +96,52 @@ export function WoditDashboard({ user }: { user: DashboardUser }) {
     const controller = new AbortController();
     const timeout = window.setTimeout(async () => {
       try {
+        await fetch(`${apiBase}/users/profile`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            email: user.email,
+            nickname: profile.nickname,
+            sensitivity: profile.sensitivity,
+            offset: profile.offset,
+            location: profile.location,
+            regionName,
+            onboardingCompleted: profile.onboardingCompleted
+          }),
+          signal: controller.signal
+        });
+      } catch {
+        // local state remains authoritative when save fails
+      }
+    }, 300);
+
+    return () => {
+      controller.abort();
+      window.clearTimeout(timeout);
+    };
+  }, [
+    profile.location,
+    profile.nickname,
+    profile.offset,
+    profile.onboardingCompleted,
+    profile.sensitivity,
+    regionName,
+    user.email
+  ]);
+
+  useEffect(() => {
+    if (!profile.onboardingCompleted) return;
+
+    const controller = new AbortController();
+    const timeout = window.setTimeout(async () => {
+      try {
         setLoading(true);
         setError(null);
 
         const params = new URLSearchParams({
+          email: user.email,
           lat: String(profile.location.lat),
           lon: String(profile.location.lng),
           sensitivity: String(profile.sensitivity),
@@ -277,21 +352,30 @@ export function WoditDashboard({ user }: { user: DashboardUser }) {
                 <div className="flex flex-wrap items-center justify-center gap-3">
                   <button
                     type="button"
-                    onClick={() => submitFeedback("GOOD")}
+                    onClick={() => {
+                      submitFeedback("GOOD");
+                      void sendFeedback("GOOD");
+                    }}
                     className="rounded-full bg-[linear-gradient(180deg,rgba(120,213,184,0.28),rgba(73,167,142,0.18))] px-5 py-3 text-sm font-medium text-emerald-50 transition hover:bg-[linear-gradient(180deg,rgba(120,213,184,0.36),rgba(73,167,142,0.26))]"
                   >
                     {"\uC88B\uC544\uC694"}
                   </button>
                   <button
                     type="button"
-                    onClick={() => submitFeedback("TOO_COLD")}
+                    onClick={() => {
+                      submitFeedback("TOO_COLD");
+                      void sendFeedback("TOO_COLD");
+                    }}
                     className="rounded-full bg-[linear-gradient(180deg,rgba(255,255,255,0.14),rgba(255,255,255,0.08))] px-5 py-3 text-sm font-medium text-white transition hover:bg-[linear-gradient(180deg,rgba(255,255,255,0.2),rgba(255,255,255,0.12))]"
                   >
                     {"\uC870\uAE08 \uCD94\uC6E0\uC5B4\uC694"}
                   </button>
                   <button
                     type="button"
-                    onClick={() => submitFeedback("TOO_HOT")}
+                    onClick={() => {
+                      submitFeedback("TOO_HOT");
+                      void sendFeedback("TOO_HOT");
+                    }}
                     className="rounded-full bg-[linear-gradient(180deg,rgba(255,188,128,0.22),rgba(255,154,96,0.16))] px-5 py-3 text-sm font-medium text-orange-50 transition hover:bg-[linear-gradient(180deg,rgba(255,188,128,0.3),rgba(255,154,96,0.22))]"
                   >
                     {"\uC870\uAE08 \uB354\uC6E0\uC5B4\uC694"}
@@ -390,8 +474,36 @@ export function WoditDashboard({ user }: { user: DashboardUser }) {
       <MusicModal
         open={musicOpen}
         musicMood={recommendation?.musicMood}
+        spotify={liveData?.spotify}
         onClose={() => setMusicOpen(false)}
       />
     </main>
   );
+
+  async function sendFeedback(status: SubmitFeedbackRequest["status"]) {
+    if (!weather || !recommendation) return;
+
+    try {
+      const response = await fetch(`${apiBase}/users/feedback`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          email: user.email,
+          status,
+          weather,
+          location: profile.location,
+          recommendation
+        } satisfies SubmitFeedbackRequest)
+      });
+
+      if (!response.ok) return;
+
+      const data = (await response.json()) as SubmitFeedbackResponse;
+      applyRemoteProfile(data.profile);
+    } catch {
+      // keep local optimistic feedback when API fails
+    }
+  }
 }

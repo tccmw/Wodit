@@ -1,7 +1,12 @@
 "use client";
 
 import { create } from "zustand";
-import type { Coordinates, FeedbackStatus, UserProfile } from "@wodit/types";
+import type {
+  Coordinates,
+  FeedbackStatus,
+  PersistedUserProfile,
+  UserProfile
+} from "@wodit/types";
 import { applyFeedbackOffset } from "@wodit/utils";
 
 export type DashboardUser = {
@@ -21,6 +26,7 @@ type Store = {
   regionName: string;
   recentLocations: RecentLocation[];
   hydrate: (user: DashboardUser) => void;
+  applyRemoteProfile: (profile: PersistedUserProfile) => void;
   completeOnboarding: (sensitivity: number, nickname: string) => void;
   setSensitivity: (value: number) => void;
   setRegionName: (value: string) => void;
@@ -93,6 +99,17 @@ export const useWoditStore = create<Store>((set, get) => ({
 
     set({ profile: nextProfile });
   },
+  applyRemoteProfile: (remote) =>
+    set(() => ({
+      profile: {
+        sensitivity: remote.sensitivity,
+        offset: remote.offset,
+        nickname: remote.nickname,
+        location: remote.location,
+        onboardingCompleted: remote.onboardingCompleted
+      },
+      regionName: remote.regionName
+    })),
   completeOnboarding: (sensitivity, nickname) =>
     set((state) => ({
       profile: {

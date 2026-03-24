@@ -6,14 +6,17 @@ export class RecommendationRequestDto {
 }
 
 export class RecommendationQueryDto {
+  email?: string;
   lat!: string;
   lon!: string;
   sensitivity?: string;
   offset?: string;
   nickname?: string;
+  regionName?: string;
 }
 
 export interface RecommendationContext {
+  email?: string;
   location: Coordinates;
   preference: UserPreference;
 }

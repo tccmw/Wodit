@@ -4,6 +4,8 @@ import { resolve } from "node:path";
 const candidatePaths = [
   resolve(process.cwd(), ".env.local"),
   resolve(process.cwd(), ".env"),
+  resolve(process.cwd(), "prisma", ".env.local"),
+  resolve(process.cwd(), "prisma", ".env"),
   resolve(process.cwd(), "..", "..", ".env.local"),
   resolve(process.cwd(), "..", "..", ".env")
 ];

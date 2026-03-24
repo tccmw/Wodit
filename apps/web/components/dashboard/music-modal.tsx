@@ -1,15 +1,17 @@
 "use client";
 
 import { motion } from "framer-motion";
-import type { MusicMood } from "@wodit/types";
+import type { MusicMood, SpotifyPlaylistPreview } from "@wodit/types";
 
 export function MusicModal({
   open,
   musicMood,
+  spotify,
   onClose
 }: {
   open: boolean;
   musicMood?: MusicMood;
+  spotify?: SpotifyPlaylistPreview | null;
   onClose: () => void;
 }) {
   if (!open) return null;
@@ -61,6 +63,16 @@ export function MusicModal({
                 </span>
               ))}
             </div>
+            {spotify?.externalUrl ? (
+              <a
+                href={spotify.externalUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-4 inline-flex w-fit rounded-full border border-white/10 bg-white/10 px-3 py-2 text-xs text-white/80 transition hover:bg-white/16"
+              >
+                {spotify.title}
+              </a>
+            ) : null}
             <div className="mt-4">
               <div className="flex items-center justify-between text-xs text-white/48">
                 <span>0:42</span>

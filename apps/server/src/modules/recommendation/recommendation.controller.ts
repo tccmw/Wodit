@@ -30,6 +30,7 @@ export class RecommendationController {
     }
 
     return this.recommendationService.recommendByLocation({
+      email: query.email,
       location: {
         lat,
         lng: lon
