@@ -73,42 +73,42 @@ export function recommendOutfit(
 
   if (subjectiveTemp <= 0) {
     outfit = {
-      top: ["Padded jacket", "Scarf", "Heattech layer"],
-      bottom: ["Fleece pants", "Boots"],
-      extras: ["Hand warmer"]
+      top: ["\uD328\uB529", "\uBAA9\uB3C4\uB9AC", "\uB0B4\uC758"],
+      bottom: ["\uAE30\uBAA8 \uD32C\uCE20", "\uBD80\uCE20"],
+      extras: ["\uD56B\uD329"]
     };
   } else if (subjectiveTemp <= 10) {
     outfit = {
-      top: ["Coat", "Jacket", "Knit"],
-      bottom: ["Slacks", "Sneakers"],
+      top: ["\uCF54\uD2B8", "\uC7AC\uD0B7", "\uB2C8\uD2B8"],
+      bottom: ["\uC2AC\uB799\uC2A4", "\uC6B4\uB3D9\uD654"],
       extras: []
     };
   } else if (subjectiveTemp <= 17) {
     outfit = {
-      top: ["Cardigan", "Light jacket"],
-      bottom: ["Jeans", "Cotton pants"],
+      top: ["\uAC00\uB514\uAC74", "\uC587\uC740 \uC7AC\uD0B7"],
+      bottom: ["\uCCAD\uBC14\uC9C0", "\uBA74\uBC14\uC9C0"],
       extras: []
     };
   } else if (subjectiveTemp <= 23) {
     outfit = {
-      top: ["Shirt", "Light knit"],
-      bottom: ["Cotton pants", "Loafers"],
+      top: ["\uC154\uCE20", "\uAC00\uBCBC\uC6B4 \uB2C8\uD2B8"],
+      bottom: ["\uBA74\uBC14\uC9C0", "\uB85C\uD37C"],
       extras: []
     };
   } else {
     outfit = {
-      top: ["Short-sleeve tee", "Linen shirt"],
-      bottom: ["Shorts", "Sandals"],
+      top: ["\uBC18\uD314 \uD2F0\uC154\uCE20", "\uB9B0\uB128 \uC154\uCE20"],
+      bottom: ["\uBC18\uBC14\uC9C0", "\uC0CC\uB4E4"],
       extras: []
     };
   }
 
   if (weather.precipitationMm > 0) {
-    outfit.extras.push("Umbrella", "Waterproof shoes");
+    outfit.extras.push("\uC6B0\uC0B0", "\uBC29\uC218 \uC288\uC988");
   }
 
   if (weather.uvIndex >= 7) {
-    outfit.extras.push("Sunglasses", "Cap");
+    outfit.extras.push("\uC120\uAE00\uB77C\uC2A4", "\uCEA1 \uBAA8\uC790");
   }
 
   return outfit;
@@ -121,7 +121,8 @@ export function recommendMusicMood(
   if (weather.condition === "rain") {
     return {
       title: "Rain Glass",
-      description: "Muted lo-fi, jazz pop, and soft indie tracks for a rainy commute.",
+      description:
+        "\uBE44 \uC624\uB294 \uCD9C\uADFC\uAE38\uC5D0 \uC5B4\uC6B8\uB9AC\uB294 \uB85C\uD30C\uC774 \uC7AC\uC988\uC640 \uC794\uC794\uD55C \uC778\uB514 \uC0AC\uC6B4\uB4DC.",
       seedGenres: ["lofi", "jazz", "indie"]
     };
   }
@@ -129,7 +130,8 @@ export function recommendMusicMood(
   if (subjectiveTemp <= 10) {
     return {
       title: "Soft Layers",
-      description: "City pop, ambient pop, and soul that pair well with coats and knit layers.",
+      description:
+        "\uCF54\uD2B8\uC640 \uB2C8\uD2B8 \uBB34\uB4DC\uC5D0 \uB9DE\uB294 \uC2DC\uD2F0\uD31D, \uC570\uBE44\uC5B8\uD2B8, \uC18C\uC6B8 \uD50C\uB808\uC774\uB9AC\uC2A4\uD2B8.",
       seedGenres: ["city-pop", "ambient", "soul"]
     };
   }
@@ -137,14 +139,16 @@ export function recommendMusicMood(
   if (subjectiveTemp >= 23) {
     return {
       title: "Sunlit Sprint",
-      description: "Bright pop, funk, and dance tracks that fit a lighter warm-weather outfit.",
+      description:
+        "\uAC00\uBCBC\uC6B4 \uC637\uCC28\uB9BC\uC5D0 \uC5B4\uC6B8\uB9AC\uB294 \uBC1D\uC740 \uD31D, \uD391\uD06C, \uB304\uC2A4 \uD2B8\uB799.",
       seedGenres: ["dance", "funk", "pop"]
     };
   }
 
   return {
     title: "Easy Tempo",
-    description: "Indie pop, neo soul, and smooth R&B for mild in-between weather.",
+    description:
+      "\uC560\uB9E4\uD55C \uAC04\uC808\uAE30\uC5D0 \uC798 \uC5B4\uC6B8\uB9AC\uB294 \uC778\uB514\uD31D\uACFC \uB124\uC624\uC18C\uC6B8, \uBD80\uB4DC\uB7EC\uC6B4 R&B.",
     seedGenres: ["indie-pop", "neo-soul", "rnb"]
   };
 }
@@ -171,25 +175,25 @@ export function createWeatherSummary(
   subjectiveTemp: number,
   nickname: string
 ) {
-  return `The current air temperature is ${weather.tempC}C, but ${nickname}'s personalized temperature reads ${subjectiveTemp.toFixed(
+  return `\uD604\uC7AC \uAE30\uC628\uC740 ${weather.tempC}\u00B0C\uC9C0\uB9CC ${nickname}\uB2D8\uC758 \uB9DE\uCDA4 \uCCB4\uAC10 \uC628\uB3C4\uB294 ${subjectiveTemp.toFixed(
     1
-  )}C. ${describeRecommendation(subjectiveTemp, weather)}`;
+  )}\u00B0C\uC785\uB2C8\uB2E4. ${describeRecommendation(subjectiveTemp, weather)}`;
 }
 
 function describeRecommendation(subjectiveTemp: number, weather: WeatherSnapshot) {
   const thermalNote =
     subjectiveTemp <= 10
-      ? "A warmth-first layered outfit is the safer choice."
+      ? "\uBCF4\uC628 \uC704\uC8FC\uC758 \uB808\uC774\uC5B4\uB4DC \uC870\uD569\uC774 \uB354 \uC548\uC815\uC801\uC785\uB2C8\uB2E4."
       : subjectiveTemp >= 23
-        ? "A breathable, lighter outfit is the better fit."
-        : "A light layered outfit should cover indoor and outdoor temperature swings.";
+        ? "\uD1B5\uAE30\uC131\uC774 \uC88B\uC740 \uAC00\uBCBC\uC6B4 \uC637\uCC28\uB9BC\uC774 \uB354 \uC801\uD569\uD569\uB2C8\uB2E4."
+        : "\uC2E4\uB0B4\uC678 \uC628\uB3C4 \uCC28\uB97C \uACE0\uB824\uD55C \uAC00\uBCBC\uC6B4 \uB808\uC774\uC5B4\uB4DC \uC870\uD569\uC774 \uC88B\uC2B5\uB2C8\uB2E4.";
 
   const weatherNote =
     weather.precipitationMm > 0
-      ? "Rain gear was added because precipitation is expected."
+      ? "\uAC15\uC218\uAC00 \uC788\uC5B4 \uC6B0\uC0B0\uACFC \uBC29\uC218 \uC544\uC774\uD15C\uC744 \uD568\uAED8 \uCD94\uCC9C\uD588\uC2B5\uB2C8\uB2E4."
       : weather.uvIndex >= 7
-        ? "Sun protection was added because the UV index is high."
-        : "A standard daily outfit should work without extra gear.";
+        ? "\uC790\uC678\uC120 \uC9C0\uC218\uAC00 \uB192\uC544 \uC120\uAE00\uB77C\uC2A4\uC640 \uBAA8\uC790\uB97C \uD568\uAED8 \uCD94\uCC9C\uD588\uC2B5\uB2C8\uB2E4."
+        : "\uCD94\uAC00 \uC7A5\uBE44 \uC5C6\uC774\uB3C4 \uBB34\uB09C\uD55C \uC77C\uC0C1 \uCF54\uB514\uC785\uB2C8\uB2E4.";
 
   return `${thermalNote} ${weatherNote}`;
 }

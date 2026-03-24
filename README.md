@@ -24,6 +24,14 @@ pnpm install
 pnpm dev
 ```
 
+## Environment
+
+Server weather integration uses OpenWeather.
+
+```env
+OPENWEATHER_API_KEY=your-openweather-api-key
+```
+
 ## MVP scope
 
 - Google OAuth sign-in flow
@@ -34,6 +42,7 @@ pnpm dev
 - rule-based outfit recommendations
 - weather-reactive interface theme
 - server-side module layout ready for API integration
+- coordinate-based backend recommendation endpoint
 
 ## Next steps
 

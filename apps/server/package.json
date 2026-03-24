@@ -2,7 +2,9 @@
   "name": "@wodit/server",
   "private": true,
   "scripts": {
-    "dev": "nest start --watch --path dist/apps/server/src/main",
+    "dev": "nest build && start /b \"wodit-server-build\" .\\node_modules\\.bin\\nest.cmd build --watch && node --watch dist\\apps\\server\\src\\main.js",
+    "dev:build": "nest build --watch",
+    "dev:start": "node --watch dist\\apps\\server\\src\\main.js",
     "build": "nest build",
     "lint": "eslint \"src/**/*.ts\"",
     "typecheck": "tsc --project tsconfig.json --noEmit"

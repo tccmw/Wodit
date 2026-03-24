@@ -1,4 +1,4 @@
-import { Controller, Get, Query } from "@nestjs/common";
+import { BadRequestException, Controller, Get, Query } from "@nestjs/common";
 import { WeatherService } from "./weather.service";
 
 @Controller("weather")
@@ -8,5 +8,20 @@ export class WeatherController {
   @Get("preview")
   preview(@Query("preset") preset?: string) {
     return this.weatherService.getPreviewWeather(preset);
+  }
+
+  @Get()
+  async byCoordinates(@Query("lat") lat?: string, @Query("lon") lon?: string) {
+    const latitude = Number(lat);
+    const longitude = Number(lon);
+
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+      throw new BadRequestException("lat and lon query parameters are required.");
+    }
+
+    return this.weatherService.getWeatherByCoordinates({
+      lat: latitude,
+      lng: longitude
+    });
   }
 }

@@ -1,262 +1,116 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { useEffect } from "react";
-import { create } from "zustand";
-import type {
-  Coordinates,
-  FeedbackStatus,
-  UserProfile,
-  WeatherSnapshot
-} from "@wodit/types";
-import {
-  applyFeedbackOffset,
-  buildRecommendation,
-  createWeatherSummary,
-  demoWeatherPresets,
-  formatCoordinates
-} from "@wodit/utils";
+import { useEffect, useState } from "react";
+import type { WeatherRecommendationResponse } from "@wodit/types";
 import { SignOutButton } from "./auth-buttons";
-
-type DashboardUser = {
-  email: string;
-  name: string;
-  image: string | null;
-};
-
-type Store = {
-  activePreset: number;
-  profile: UserProfile;
-  hydrate: (user: DashboardUser) => void;
-  completeOnboarding: (sensitivity: number, nickname: string) => void;
-  setSensitivity: (value: number) => void;
-  setLocationField: (field: keyof Coordinates, value: number) => void;
-  applyCurrentLocation: () => Promise<void>;
-  setActivePreset: (index: number) => void;
-  submitFeedback: (status: FeedbackStatus) => void;
-};
-
-const defaultProfile: UserProfile = {
-  sensitivity: 0,
-  offset: 0,
-  nickname: "Wodit User",
-  location: {
-    lat: 37.5665,
-    lng: 126.978
-  },
-  onboardingCompleted: false
-};
-
-function profileStorageKey(email: string) {
-  return `wodit-profile:${email}`;
-}
-
-const useWoditStore = create<Store>((set) => ({
-  activePreset: 0,
-  profile: defaultProfile,
-  hydrate: (user) => {
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    const raw = window.localStorage.getItem(profileStorageKey(user.email));
-    if (!raw) {
-      set({
-        profile: {
-          ...defaultProfile,
-          nickname: user.name
-        }
-      });
-      return;
-    }
-
-    try {
-      const parsed = JSON.parse(raw) as Partial<UserProfile>;
-      set({
-        profile: {
-          ...defaultProfile,
-          ...parsed,
-          nickname: parsed.nickname || user.name
-        }
-      });
-    } catch {
-      window.localStorage.removeItem(profileStorageKey(user.email));
-      set({
-        profile: {
-          ...defaultProfile,
-          nickname: user.name
-        }
-      });
-    }
-  },
-  completeOnboarding: (sensitivity, nickname) =>
-    set((state) => ({
-      profile: {
-        ...state.profile,
-        sensitivity,
-        nickname,
-        onboardingCompleted: true
-      }
-    })),
-  setSensitivity: (value) =>
-    set((state) => ({
-      profile: {
-        ...state.profile,
-        sensitivity: value
-      }
-    })),
-  setLocationField: (field, value) =>
-    set((state) => ({
-      profile: {
-        ...state.profile,
-        location: {
-          ...state.profile.location,
-          [field]: Number.isFinite(value) ? value : 0
-        }
-      }
-    })),
-  applyCurrentLocation: async () => {
-    if (typeof window === "undefined" || !navigator.geolocation) {
-      return;
-    }
-
-    const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-      navigator.geolocation.getCurrentPosition(resolve, reject);
-    }).catch(() => null);
-
-    if (!position) {
-      return;
-    }
-
-    set((state) => ({
-      profile: {
-        ...state.profile,
-        location: {
-          lat: Number(position.coords.latitude.toFixed(6)),
-          lng: Number(position.coords.longitude.toFixed(6))
-        }
-      }
-    }));
-  },
-  setActivePreset: (index) => set({ activePreset: index }),
-  submitFeedback: (status) =>
-    set((state) => ({
-      profile: applyFeedbackOffset(state.profile, status)
-    }))
-}));
-
-function ThemeBackdrop({ weather }: { weather: WeatherSnapshot }) {
-  const cloudy = weather.condition === "clouds" || weather.condition === "rain";
-  const warm = weather.tempC >= 23;
-
-  return (
-    <motion.div
-      className="absolute inset-0 rounded-[2rem]"
-      animate={{
-        background: cloudy
-          ? "linear-gradient(150deg, rgba(131,146,167,0.78), rgba(240,244,248,0.52))"
-          : warm
-            ? "linear-gradient(150deg, rgba(255,191,105,0.85), rgba(255,234,182,0.52))"
-            : "linear-gradient(150deg, rgba(101,163,255,0.85), rgba(229,241,255,0.48))"
-      }}
-      transition={{ duration: 0.6 }}
-    />
-  );
-}
-
-function OnboardingCard({
-  user,
-  profile,
-  completeOnboarding
-}: {
-  user: DashboardUser;
-  profile: UserProfile;
-  completeOnboarding: (sensitivity: number, nickname: string) => void;
-}) {
-  return (
-    <section className="glass relative mx-auto max-w-3xl overflow-hidden rounded-[2rem] p-8 shadow-panel">
-      <div className="absolute inset-0 bg-[linear-gradient(145deg,rgba(255,204,112,0.64),rgba(120,170,255,0.24),rgba(255,255,255,0.22))]" />
-      <div className="relative z-10 space-y-6">
-        <div className="flex items-start justify-between gap-4">
-          <div className="space-y-3">
-            <p className="text-sm font-semibold uppercase tracking-[0.28em] text-slate-700">
-              First Login
-            </p>
-            <h1 className="font-display text-4xl font-semibold tracking-tight text-slate-950">
-              Set your personal temperature baseline.
-            </h1>
-            <p className="max-w-xl text-sm leading-6 text-slate-800 sm:text-base">
-              Google login is complete. Before showing recommendations, Wodit needs your cold
-              or heat sensitivity. Latitude and longitude stay editable on the main page at all
-              times.
-            </p>
-          </div>
-          <SignOutButton />
-        </div>
-
-        <div className="rounded-[1.6rem] bg-white/70 p-5">
-          <div className="flex items-center justify-between">
-            <p className="text-lg font-semibold text-slate-950">Sensitivity</p>
-            <span className="rounded-full bg-slate-950 px-3 py-1 text-sm text-white">
-              {profile.sensitivity > 0 ? "+" : ""}
-              {profile.sensitivity}
-            </span>
-          </div>
-          <input
-            className="mt-4 w-full accent-slate-900"
-            type="range"
-            min={-5}
-            max={5}
-            step={1}
-            value={profile.sensitivity}
-            onChange={(event) =>
-              useWoditStore.getState().setSensitivity(Number(event.target.value))
-            }
-          />
-          <p className="mt-3 text-sm leading-6 text-slate-700">
-            Negative values mean you get warm easily. Positive values mean you get cold easily.
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="text-sm text-slate-700">Signed in as {user.email}</p>
-          <button
-            type="button"
-            onClick={() => completeOnboarding(profile.sensitivity, user.name)}
-            className="rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
-          >
-            Save sensitivity and continue
-          </button>
-        </div>
-      </div>
-    </section>
-  );
-}
+import { GlassCard } from "./dashboard/glass-card";
+import {
+  apiBase,
+  buildLookbookItems,
+  getConditionLabel,
+  getThemeMode
+} from "./dashboard/helpers";
+import { LocationSheet } from "./dashboard/location-sheet";
+import { LookbookCanvas } from "./dashboard/lookbook-canvas";
+import { MusicModal } from "./dashboard/music-modal";
+import { OnboardingCard } from "./dashboard/onboarding-card";
+import {
+  profileStorageKey,
+  recentStorageKey,
+  type DashboardUser,
+  useWoditStore
+} from "./dashboard/store";
 
 export function WoditDashboard({ user }: { user: DashboardUser }) {
   const {
-    activePreset,
     profile,
+    regionName,
+    recentLocations,
     hydrate,
     completeOnboarding,
     setSensitivity,
+    setRegionName,
     setLocationField,
     applyCurrentLocation,
-    setActivePreset,
+    saveRecentLocation,
+    applyRecentLocation,
     submitFeedback
   } = useWoditStore();
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [musicOpen, setMusicOpen] = useState(false);
+  const [liveData, setLiveData] = useState<WeatherRecommendationResponse | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     hydrate(user);
   }, [hydrate, user]);
 
   useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
+    if (typeof window === "undefined") return;
 
-    window.localStorage.setItem(profileStorageKey(user.email), JSON.stringify(profile));
-  }, [profile, user.email]);
+    window.localStorage.setItem(
+      profileStorageKey(user.email),
+      JSON.stringify({ ...profile, regionName })
+    );
+    window.localStorage.setItem(recentStorageKey(user.email), JSON.stringify(recentLocations));
+  }, [profile, recentLocations, regionName, user.email]);
+
+  useEffect(() => {
+    if (!profile.onboardingCompleted) return;
+
+    const controller = new AbortController();
+    const timeout = window.setTimeout(async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const params = new URLSearchParams({
+          lat: String(profile.location.lat),
+          lon: String(profile.location.lng),
+          sensitivity: String(profile.sensitivity),
+          offset: String(profile.offset),
+          nickname: profile.nickname
+        });
+
+        const response = await fetch(`${apiBase}/recommendations/weather?${params}`, {
+          signal: controller.signal
+        });
+
+        if (!response.ok) {
+          throw new Error("\uCD94\uCC9C \uB370\uC774\uD130\uB97C \uBD88\uB7EC\uC624\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4.");
+        }
+
+        const data = (await response.json()) as WeatherRecommendationResponse;
+        setLiveData(data);
+      } catch (fetchError) {
+        if (!controller.signal.aborted) {
+          setError(
+            fetchError instanceof Error
+              ? fetchError.message
+              : "\uC11C\uBC84\uC640 \uC5F0\uACB0\uD558\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4."
+          );
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setLoading(false);
+        }
+      }
+    }, 250);
+
+    return () => {
+      controller.abort();
+      window.clearTimeout(timeout);
+    };
+  }, [
+    profile.location.lat,
+    profile.location.lng,
+    profile.nickname,
+    profile.offset,
+    profile.onboardingCompleted,
+    profile.sensitivity
+  ]);
 
   if (!profile.onboardingCompleted) {
     return (
@@ -271,250 +125,273 @@ export function WoditDashboard({ user }: { user: DashboardUser }) {
     );
   }
 
-  const weather = demoWeatherPresets[activePreset];
-  const result = buildRecommendation(weather, profile);
-  const summary = createWeatherSummary(weather, result.subjectiveTemp, profile.nickname);
+  const weather = liveData?.weather;
+  const recommendation = liveData?.recommendation;
+  const lookbookItems = buildLookbookItems(liveData);
+  const outfitItems = recommendation
+    ? [
+        ...recommendation.outfit.top,
+        ...recommendation.outfit.bottom,
+        ...recommendation.outfit.extras
+      ]
+    : [];
 
   return (
-    <main className="relative min-h-screen overflow-hidden px-4 py-10 text-slate-900 sm:px-8">
-      <div className="mesh" />
-      <section className="mx-auto grid max-w-6xl gap-6 lg:grid-cols-[1.5fr_1fr]">
-        <motion.article
-          initial={{ opacity: 0, y: 18 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="glass relative overflow-hidden rounded-[2rem] p-6 shadow-panel sm:p-8"
-        >
-          <ThemeBackdrop weather={weather} />
-          <div className="relative z-10 space-y-8">
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div className="max-w-xl space-y-3">
-                <p className="text-sm font-semibold uppercase tracking-[0.3em] text-slate-700">
-                  Subjective Weather Styling
-                </p>
-                <h1 className="font-display text-4xl font-semibold tracking-tight sm:text-5xl">
-                  Dress for how you feel, not just what the forecast says.
-                </h1>
-                <p className="max-w-lg text-sm leading-6 text-slate-800 sm:text-base">
-                  {summary}
-                </p>
-              </div>
-              <div className="flex flex-col items-end gap-3">
-                <SignOutButton />
-                <div className="rounded-[1.5rem] bg-slate-950/80 px-5 py-4 text-white">
-                  <p className="text-xs uppercase tracking-[0.28em] text-white/60">
-                    Subjective Temp
-                  </p>
-                  <p className="mt-2 text-4xl font-semibold">
-                    {result.subjectiveTemp.toFixed(1)}C
-                  </p>
-                  <p className="mt-1 text-sm text-white/70">
-                    Actual {weather.tempC}C / Offset {profile.offset.toFixed(1)}C
-                  </p>
-                </div>
-              </div>
-            </div>
+    <main className="rainy-dashboard relative min-h-screen overflow-hidden text-white">
+      <div className="rain-streaks" />
+      <div className="rain-droplets-overlay" />
 
-            <div className="grid gap-4 md:grid-cols-3">
-              {demoWeatherPresets.map((preset, index) => (
-                <button
-                  key={preset.label}
-                  type="button"
-                  onClick={() => setActivePreset(index)}
-                  className={`rounded-[1.4rem] border px-4 py-4 text-left transition ${
-                    index === activePreset
-                      ? "border-slate-950 bg-slate-950 text-white"
-                      : "border-white/50 bg-white/45 text-slate-800"
-                  }`}
-                >
-                  <p className="text-xs uppercase tracking-[0.24em] opacity-70">{preset.label}</p>
-                  <p className="mt-2 text-xl font-semibold">{preset.tempC}C</p>
-                  <p className="mt-1 text-sm">
-                    {preset.precipitationMm > 0 ? "Rain expected" : "Dry"} / Wind{" "}
-                    {preset.windSpeedMs}m/s
-                  </p>
-                </button>
-              ))}
-            </div>
-
-            <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
-              <section className="rounded-[1.6rem] bg-white/55 p-5">
-                <p className="text-sm font-semibold uppercase tracking-[0.22em] text-slate-600">
-                  Outfit Recommendation
-                </p>
-                <div className="mt-5 grid gap-4 md:grid-cols-2">
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.22em] text-slate-500">Outer / Top</p>
-                    <ul className="mt-3 space-y-2 text-base">
-                      {result.outfit.top.map((item) => (
-                        <li key={item} className="rounded-2xl bg-slate-950/5 px-3 py-2">
-                          {item}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.22em] text-slate-500">
-                      Bottom / Extras
-                    </p>
-                    <ul className="mt-3 space-y-2 text-base">
-                      {[...result.outfit.bottom, ...result.outfit.extras].map((item) => (
-                        <li key={item} className="rounded-2xl bg-slate-950/5 px-3 py-2">
-                          {item}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
-              </section>
-
-              <section className="rounded-[1.6rem] bg-slate-950 px-5 py-5 text-white">
-                <p className="text-sm font-semibold uppercase tracking-[0.22em] text-white/55">
-                  Music Mood
-                </p>
-                <p className="mt-4 text-3xl font-semibold">{result.musicMood.title}</p>
-                <p className="mt-3 text-sm leading-6 text-white/75">
-                  {result.musicMood.description}
-                </p>
-                <div className="mt-6 flex flex-wrap gap-2">
-                  {result.musicMood.seedGenres.map((genre) => (
-                    <span
-                      key={genre}
-                      className="rounded-full border border-white/20 px-3 py-1 text-xs uppercase tracking-[0.2em]"
-                    >
-                      {genre}
-                    </span>
-                  ))}
-                </div>
-              </section>
-            </div>
+      <section className="relative mx-auto max-w-7xl px-4 py-6 sm:px-8">
+        <div className="mb-5 flex items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => void applyCurrentLocation()}
+              className="rain-glass-chip"
+            >
+              {"\uD604\uC704\uCE58\uB85C \uC124\uC815"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setSheetOpen(true)}
+              className="rain-glass-chip"
+            >
+              {"\uC704\uCE58 \uBCC0\uACBD"}
+            </button>
+            <span className="rain-glass-chip">{regionName}</span>
+            {weather?.label ? (
+              <span className="rain-glass-chip">{weather.label}</span>
+            ) : null}
+            {liveData ? (
+              <span className="rain-glass-chip">
+                {liveData.source === "openweather"
+                  ? "\uC2E4\uC2DC\uAC04 \uB0A0\uC528"
+                  : "\uB370\uBAA8 \uB0A0\uC528"}
+              </span>
+            ) : null}
           </div>
-        </motion.article>
 
-        <motion.aside
-          initial={{ opacity: 0, x: 24 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.1 }}
-          className="glass rounded-[2rem] p-6 shadow-panel"
-        >
-          <p className="text-sm font-semibold uppercase tracking-[0.24em] text-slate-600">
-            Personal Controls
-          </p>
-          <div className="mt-5 space-y-7">
-            <div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setMusicOpen(true)}
+              className="rain-glass-chip"
+            >
+              {"Music "}
+              {recommendation?.musicMood.title ??
+                "\uCD94\uCC9C \uD50C\uB808\uC774\uB9AC\uC2A4\uD2B8"}
+            </button>
+            <SignOutButton />
+          </div>
+        </div>
+
+        <div className="grid gap-6 xl:grid-cols-[0.82fr_1.38fr_0.74fr]">
+          <motion.section initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }}>
+            <GlassCard className="h-full p-5">
+              <p className="text-xs uppercase tracking-[0.28em] text-white/55">Visual Proof</p>
+              <p className="mt-4 text-sm leading-7 text-white/72">
+                {weather && recommendation
+                  ? `\uC2E4\uC81C ${weather.tempC}\u00B0C\uC9C0\uB9CC ${profile.nickname}\uB2D8 \uB9DE\uCDA4 \uCCB4\uAC10 \uC628\uB3C4\uB294 ${recommendation.subjectiveTemp.toFixed(
+                      1
+                    )}\u00B0C\uC785\uB2C8\uB2E4.`
+                  : "\uC2E4\uC2DC\uAC04 \uCD94\uCC9C \uB370\uC774\uD130\uB97C \uBD88\uB7EC\uC624\uB294 \uC911\uC785\uB2C8\uB2E4."}
+              </p>
+
+              <div className="mt-7 rounded-[1.4rem] bg-black/16 p-5">
+                <p className="text-xs uppercase tracking-[0.24em] text-white/52">
+                  Subjective Temp
+                </p>
+                <p className="mt-2 text-6xl font-black tracking-[-0.08em] text-white">
+                  {recommendation ? recommendation.subjectiveTemp.toFixed(1) : "--"}
+                </p>
+                <p className="mt-2 text-sm text-white/62">
+                  {weather
+                    ? `${getConditionLabel(weather.condition)} / \uD48D\uC18D ${weather.windSpeedMs}m/s`
+                    : "\uB0A0\uC528 \uB85C\uB529 \uC911"}
+                </p>
+                <div className="mt-5">
+                  <div className="glow-meter">
+                    <motion.div
+                      className="glow-meter-fill"
+                      animate={{
+                        width: `${Math.max(
+                          8,
+                          Math.min(100, (((recommendation?.subjectiveTemp ?? 0) + 5) / 35) * 100)
+                        )}%`
+                      }}
+                      transition={{ duration: 0.5 }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-6 rounded-[1.2rem] border border-white/10 bg-white/6 p-4 text-sm leading-6 text-white/72">
+                {loading
+                  ? "\uC11C\uBC84\uC5D0\uC11C \uCD5C\uC2E0 \uB0A0\uC528\uC640 \uCD94\uCC9C\uC744 \uBD88\uB7EC\uC624\uB294 \uC911\uC785\uB2C8\uB2E4."
+                  : null}
+                {!loading && error ? error : null}
+                {!loading && !error && recommendation ? recommendation.reason : null}
+              </div>
+            </GlassCard>
+          </motion.section>
+
+          <motion.section
+            initial={{ opacity: 0, y: 18 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.05 }}
+          >
+            <GlassCard className="h-full p-6">
               <div className="flex items-center justify-between">
-                <p className="text-lg font-semibold">Sensitivity</p>
-                <span className="rounded-full bg-slate-950 px-3 py-1 text-sm text-white">
-                  {profile.sensitivity > 0 ? "+" : ""}
-                  {profile.sensitivity}
-                </span>
+                <div>
+                  <p className="text-xs uppercase tracking-[0.28em] text-white/55">
+                    Outfit Canvas
+                  </p>
+                  <h2 className="mt-3 text-3xl font-semibold tracking-tight">
+                    {"\uC624\uB298\uC758 \uCF54\uB514"}
+                  </h2>
+                </div>
+                <div className="rounded-full bg-white/10 px-3 py-2 text-xs text-white/68">
+                  {getThemeMode(weather?.condition)}
+                </div>
               </div>
-              <input
-                className="mt-4 w-full accent-slate-900"
-                type="range"
-                min={-5}
-                max={5}
-                step={1}
-                value={profile.sensitivity}
-                onChange={(event) => setSensitivity(Number(event.target.value))}
-              />
-              <p className="mt-3 text-sm leading-6 text-slate-700">
-                Negative means you get warm easily. Positive means you get cold easily.
-              </p>
-            </div>
 
-            <div className="rounded-[1.5rem] bg-white/60 p-4">
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-lg font-semibold">Latitude / Longitude</p>
-                <button
-                  type="button"
-                  onClick={() => void applyCurrentLocation()}
-                  className="rounded-full bg-slate-950 px-3 py-2 text-xs font-semibold text-white transition hover:bg-slate-800"
-                >
-                  Use current location
-                </button>
+              <div className="mt-6">
+                <LookbookCanvas items={lookbookItems} />
               </div>
-              <p className="mt-2 text-sm leading-6 text-slate-700">
-                These coordinates stay editable directly from the main page at any time.
-              </p>
-              <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                <label className="text-sm font-medium text-slate-700">
-                  Latitude
-                  <input
-                    className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-950"
-                    type="number"
-                    step="0.0001"
-                    value={profile.location.lat}
-                    onChange={(event) => setLocationField("lat", Number(event.target.value))}
-                  />
-                </label>
-                <label className="text-sm font-medium text-slate-700">
-                  Longitude
-                  <input
-                    className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-950"
-                    type="number"
-                    step="0.0001"
-                    value={profile.location.lng}
-                    onChange={(event) => setLocationField("lng", Number(event.target.value))}
-                  />
-                </label>
-              </div>
-              <p className="mt-3 text-sm text-slate-700">
-                Active coordinates: {formatCoordinates(profile.location)}
-              </p>
-            </div>
 
-            <div>
-              <p className="text-lg font-semibold">Feedback Loop</p>
-              <p className="mt-2 text-sm leading-6 text-slate-700">
-                Use feedback after going outside to adjust the learned offset.
-              </p>
-              <div className="mt-4 grid grid-cols-3 gap-2">
-                {[
-                  { label: "Too cold", value: "TOO_COLD" },
-                  { label: "Just right", value: "GOOD" },
-                  { label: "Too hot", value: "TOO_HOT" }
-                ].map((action) => (
+              <div className="mt-5 grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
+                <div className="rounded-[1.4rem] border border-white/10 bg-white/8 p-4">
+                  <p className="text-xs uppercase tracking-[0.24em] text-white/55">This Look</p>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {outfitItems.map((item) => (
+                      <span
+                        key={item}
+                        className="rounded-full border border-white/10 bg-white/10 px-3 py-2 text-sm text-white/84"
+                      >
+                        {item}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center justify-center gap-3">
                   <button
-                    key={action.value}
                     type="button"
-                    onClick={() => submitFeedback(action.value as FeedbackStatus)}
-                    className="rounded-2xl bg-slate-950 px-3 py-3 text-sm font-medium text-white transition hover:bg-slate-800"
+                    onClick={() => submitFeedback("GOOD")}
+                    className="rounded-full bg-[linear-gradient(180deg,rgba(120,213,184,0.28),rgba(73,167,142,0.18))] px-5 py-3 text-sm font-medium text-emerald-50 transition hover:bg-[linear-gradient(180deg,rgba(120,213,184,0.36),rgba(73,167,142,0.26))]"
                   >
-                    {action.label}
+                    {"\uC88B\uC544\uC694"}
                   </button>
-                ))}
+                  <button
+                    type="button"
+                    onClick={() => submitFeedback("TOO_COLD")}
+                    className="rounded-full bg-[linear-gradient(180deg,rgba(255,255,255,0.14),rgba(255,255,255,0.08))] px-5 py-3 text-sm font-medium text-white transition hover:bg-[linear-gradient(180deg,rgba(255,255,255,0.2),rgba(255,255,255,0.12))]"
+                  >
+                    {"\uC870\uAE08 \uCD94\uC6E0\uC5B4\uC694"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => submitFeedback("TOO_HOT")}
+                    className="rounded-full bg-[linear-gradient(180deg,rgba(255,188,128,0.22),rgba(255,154,96,0.16))] px-5 py-3 text-sm font-medium text-orange-50 transition hover:bg-[linear-gradient(180deg,rgba(255,188,128,0.3),rgba(255,154,96,0.22))]"
+                  >
+                    {"\uC870\uAE08 \uB354\uC6E0\uC5B4\uC694"}
+                  </button>
+                </div>
               </div>
-              <p className="mt-3 text-sm text-slate-700">
-                Learned offset: {profile.offset.toFixed(1)}C
-              </p>
-            </div>
+            </GlassCard>
+          </motion.section>
 
-            <div className="rounded-[1.5rem] bg-white/60 p-4">
-              <p className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">
-                Weather Inputs
-              </p>
-              <dl className="mt-4 space-y-3 text-sm">
-                <div className="flex items-center justify-between">
-                  <dt>Condition</dt>
-                  <dd className="font-semibold uppercase">{weather.condition}</dd>
+          <motion.aside
+            initial={{ opacity: 0, x: 16 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.1 }}
+          >
+            <GlassCard className="h-full p-5">
+              <p className="text-xs uppercase tracking-[0.28em] text-white/55">Quick Info</p>
+
+              <div className="mt-5 rounded-[1.4rem] border border-white/10 bg-black/10 p-4">
+                <p className="text-sm font-semibold text-white/84">
+                  {"\uBBFC\uAC10\uB3C4 \uC870\uC808"}
+                </p>
+                <div className="mt-3 flex items-center justify-between">
+                  <span className="rounded-full bg-white/10 px-3 py-1 text-xs text-white">
+                    {profile.sensitivity > 0 ? "+" : ""}
+                    {profile.sensitivity}
+                  </span>
+                  <span className="text-xs text-white/56">
+                    {`offset ${profile.offset.toFixed(1)}°C`}
+                  </span>
                 </div>
-                <div className="flex items-center justify-between">
-                  <dt>Precipitation</dt>
-                  <dd className="font-semibold">{weather.precipitationMm} mm</dd>
-                </div>
-                <div className="flex items-center justify-between">
-                  <dt>Wind</dt>
-                  <dd className="font-semibold">{weather.windSpeedMs} m/s</dd>
-                </div>
-                <div className="flex items-center justify-between">
-                  <dt>UV Index</dt>
-                  <dd className="font-semibold">{weather.uvIndex}</dd>
-                </div>
-              </dl>
-            </div>
-          </div>
-        </motion.aside>
+                <input
+                  className="mt-4 w-full accent-sky-300"
+                  type="range"
+                  min={-5}
+                  max={5}
+                  step={1}
+                  value={profile.sensitivity}
+                  onChange={(event) => setSensitivity(Number(event.target.value))}
+                />
+              </div>
+
+              <div className="mt-5 rounded-[1.4rem] border border-white/10 bg-black/10 p-4">
+                <p className="text-sm font-semibold text-white/84">
+                  {"\uC2E4\uC2DC\uAC04 \uB0A0\uC528"}
+                </p>
+                <dl className="mt-4 space-y-3 text-sm text-white/76">
+                  <div className="flex items-center justify-between">
+                    <dt>{"\uC0C1\uD0DC"}</dt>
+                    <dd className="font-semibold">{getConditionLabel(weather?.condition)}</dd>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <dt>{"\uAE30\uC628"}</dt>
+                    <dd className="font-semibold">{weather ? `${weather.tempC}°C` : "-"}</dd>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <dt>{"\uAC15\uC218\uB7C9"}</dt>
+                    <dd className="font-semibold">
+                      {weather ? `${weather.precipitationMm} mm` : "-"}
+                    </dd>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <dt>{"UV \uC9C0\uC218"}</dt>
+                    <dd className="font-semibold">{weather?.uvIndex ?? "-"}</dd>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <dt>{"\uC704\uB3C4"}</dt>
+                    <dd className="font-semibold">{profile.location.lat.toFixed(4)}</dd>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <dt>{"\uACBD\uB3C4"}</dt>
+                    <dd className="font-semibold">{profile.location.lng.toFixed(4)}</dd>
+                  </div>
+                </dl>
+              </div>
+            </GlassCard>
+          </motion.aside>
+        </div>
       </section>
+
+      <LocationSheet
+        open={sheetOpen}
+        profile={profile}
+        regionName={regionName}
+        recentLocations={recentLocations}
+        onClose={() => setSheetOpen(false)}
+        onCurrentLocation={() => void applyCurrentLocation()}
+        onRegionNameChange={setRegionName}
+        onLocationFieldChange={setLocationField}
+        onApplyRecent={applyRecentLocation}
+        onSave={() => {
+          saveRecentLocation();
+          setSheetOpen(false);
+        }}
+      />
+
+      <MusicModal
+        open={musicOpen}
+        musicMood={recommendation?.musicMood}
+        onClose={() => setMusicOpen(false)}
+      />
     </main>
   );
 }

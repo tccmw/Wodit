@@ -38,7 +38,7 @@ export function GoogleSignInButton() {
       className="flex w-full items-center justify-center gap-3 rounded-xl border border-[#cfd9df] bg-white px-4 py-3 text-sm font-medium text-[#31424d] shadow-[0_8px_20px_rgba(124,150,167,0.12)] transition hover:bg-[#fafdff]"
     >
       <GoogleMark />
-      <span>Google 계정으로 로그인</span>
+      <span>{"Google \uACC4\uC815\uC73C\uB85C \uB85C\uADF8\uC778"}</span>
     </button>
   );
 }
@@ -50,7 +50,7 @@ export function SignOutButton() {
       onClick={() => void signOut({ callbackUrl: "/" })}
       className="rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-950 hover:text-slate-950"
     >
-      로그아웃
+      {"\uB85C\uADF8\uC544\uC6C3"}
     </button>
   );
 }

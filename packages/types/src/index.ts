@@ -46,3 +46,10 @@ export interface RecommendationResult {
   outfit: OutfitRecommendation;
   musicMood: MusicMood;
 }
+
+export interface WeatherRecommendationResponse {
+  source: "openweather" | "demo";
+  location: Coordinates;
+  weather: WeatherSnapshot;
+  recommendation: RecommendationResult;
+}
