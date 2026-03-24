@@ -18,6 +18,16 @@ export interface UserPreference {
   nickname: string;
 }
 
+export interface Coordinates {
+  lat: number;
+  lng: number;
+}
+
+export interface UserProfile extends UserPreference {
+  location: Coordinates;
+  onboardingCompleted: boolean;
+}
+
 export interface OutfitRecommendation {
   top: string[];
   bottom: string[];

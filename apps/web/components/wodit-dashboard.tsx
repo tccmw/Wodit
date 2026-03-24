@@ -3,63 +3,146 @@
 import { motion } from "framer-motion";
 import { useEffect } from "react";
 import { create } from "zustand";
-import type { FeedbackStatus, UserPreference, WeatherSnapshot } from "@wodit/types";
+import type {
+  Coordinates,
+  FeedbackStatus,
+  UserProfile,
+  WeatherSnapshot
+} from "@wodit/types";
 import {
   applyFeedbackOffset,
   buildRecommendation,
   createWeatherSummary,
-  demoWeatherPresets
+  demoWeatherPresets,
+  formatCoordinates
 } from "@wodit/utils";
+import { SignOutButton } from "./auth-buttons";
+
+type DashboardUser = {
+  email: string;
+  name: string;
+  image: string | null;
+};
 
 type Store = {
   activePreset: number;
-  preference: UserPreference;
-  setActivePreset: (index: number) => void;
+  profile: UserProfile;
+  hydrate: (user: DashboardUser) => void;
+  completeOnboarding: (sensitivity: number, nickname: string) => void;
   setSensitivity: (value: number) => void;
+  setLocationField: (field: keyof Coordinates, value: number) => void;
+  applyCurrentLocation: () => Promise<void>;
+  setActivePreset: (index: number) => void;
   submitFeedback: (status: FeedbackStatus) => void;
-  hydrate: () => void;
 };
 
-const storageKey = "wodit-preferences";
-
-const defaultPreference: UserPreference = {
+const defaultProfile: UserProfile = {
   sensitivity: 0,
   offset: 0,
-  nickname: "Wodit User"
+  nickname: "Wodit User",
+  location: {
+    lat: 37.5665,
+    lng: 126.978
+  },
+  onboardingCompleted: false
 };
 
-const useWoditStore = create<Store>((set, get) => ({
+function profileStorageKey(email: string) {
+  return `wodit-profile:${email}`;
+}
+
+const useWoditStore = create<Store>((set) => ({
   activePreset: 0,
-  preference: defaultPreference,
-  setActivePreset: (index) => set({ activePreset: index }),
-  setSensitivity: (value) =>
-    set((state) => ({
-      preference: {
-        ...state.preference,
-        sensitivity: value
-      }
-    })),
-  submitFeedback: (status) =>
-    set((state) => ({
-      preference: applyFeedbackOffset(state.preference, status)
-    })),
-  hydrate: () => {
+  profile: defaultProfile,
+  hydrate: (user) => {
     if (typeof window === "undefined") {
       return;
     }
 
-    const raw = window.localStorage.getItem(storageKey);
+    const raw = window.localStorage.getItem(profileStorageKey(user.email));
     if (!raw) {
+      set({
+        profile: {
+          ...defaultProfile,
+          nickname: user.name
+        }
+      });
       return;
     }
 
     try {
-      const preference = JSON.parse(raw) as UserPreference;
-      set({ preference: { ...defaultPreference, ...preference } });
+      const parsed = JSON.parse(raw) as Partial<UserProfile>;
+      set({
+        profile: {
+          ...defaultProfile,
+          ...parsed,
+          nickname: parsed.nickname || user.name
+        }
+      });
     } catch {
-      window.localStorage.removeItem(storageKey);
+      window.localStorage.removeItem(profileStorageKey(user.email));
+      set({
+        profile: {
+          ...defaultProfile,
+          nickname: user.name
+        }
+      });
     }
-  }
+  },
+  completeOnboarding: (sensitivity, nickname) =>
+    set((state) => ({
+      profile: {
+        ...state.profile,
+        sensitivity,
+        nickname,
+        onboardingCompleted: true
+      }
+    })),
+  setSensitivity: (value) =>
+    set((state) => ({
+      profile: {
+        ...state.profile,
+        sensitivity: value
+      }
+    })),
+  setLocationField: (field, value) =>
+    set((state) => ({
+      profile: {
+        ...state.profile,
+        location: {
+          ...state.profile.location,
+          [field]: Number.isFinite(value) ? value : 0
+        }
+      }
+    })),
+  applyCurrentLocation: async () => {
+    if (typeof window === "undefined" || !navigator.geolocation) {
+      return;
+    }
+
+    const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+      navigator.geolocation.getCurrentPosition(resolve, reject);
+    }).catch(() => null);
+
+    if (!position) {
+      return;
+    }
+
+    set((state) => ({
+      profile: {
+        ...state.profile,
+        location: {
+          lat: Number(position.coords.latitude.toFixed(6)),
+          lng: Number(position.coords.longitude.toFixed(6))
+        }
+      }
+    }));
+  },
+  setActivePreset: (index) => set({ activePreset: index }),
+  submitFeedback: (status) =>
+    set((state) => ({
+      profile: applyFeedbackOffset(state.profile, status)
+    }))
 }));
 
 function ThemeBackdrop({ weather }: { weather: WeatherSnapshot }) {
@@ -81,25 +164,116 @@ function ThemeBackdrop({ weather }: { weather: WeatherSnapshot }) {
   );
 }
 
-export function WoditDashboard() {
-  const { activePreset, preference, setActivePreset, setSensitivity, submitFeedback } =
-    useWoditStore();
+function OnboardingCard({
+  user,
+  profile,
+  completeOnboarding
+}: {
+  user: DashboardUser;
+  profile: UserProfile;
+  completeOnboarding: (sensitivity: number, nickname: string) => void;
+}) {
+  return (
+    <section className="glass relative mx-auto max-w-3xl overflow-hidden rounded-[2rem] p-8 shadow-panel">
+      <div className="absolute inset-0 bg-[linear-gradient(145deg,rgba(255,204,112,0.64),rgba(120,170,255,0.24),rgba(255,255,255,0.22))]" />
+      <div className="relative z-10 space-y-6">
+        <div className="flex items-start justify-between gap-4">
+          <div className="space-y-3">
+            <p className="text-sm font-semibold uppercase tracking-[0.28em] text-slate-700">
+              First Login
+            </p>
+            <h1 className="font-display text-4xl font-semibold tracking-tight text-slate-950">
+              Set your personal temperature baseline.
+            </h1>
+            <p className="max-w-xl text-sm leading-6 text-slate-800 sm:text-base">
+              Google login is complete. Before showing recommendations, Wodit needs your cold
+              or heat sensitivity. Latitude and longitude stay editable on the main page at all
+              times.
+            </p>
+          </div>
+          <SignOutButton />
+        </div>
+
+        <div className="rounded-[1.6rem] bg-white/70 p-5">
+          <div className="flex items-center justify-between">
+            <p className="text-lg font-semibold text-slate-950">Sensitivity</p>
+            <span className="rounded-full bg-slate-950 px-3 py-1 text-sm text-white">
+              {profile.sensitivity > 0 ? "+" : ""}
+              {profile.sensitivity}
+            </span>
+          </div>
+          <input
+            className="mt-4 w-full accent-slate-900"
+            type="range"
+            min={-5}
+            max={5}
+            step={1}
+            value={profile.sensitivity}
+            onChange={(event) =>
+              useWoditStore.getState().setSensitivity(Number(event.target.value))
+            }
+          />
+          <p className="mt-3 text-sm leading-6 text-slate-700">
+            Negative values mean you get warm easily. Positive values mean you get cold easily.
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-slate-700">Signed in as {user.email}</p>
+          <button
+            type="button"
+            onClick={() => completeOnboarding(profile.sensitivity, user.name)}
+            className="rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+          >
+            Save sensitivity and continue
+          </button>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+export function WoditDashboard({ user }: { user: DashboardUser }) {
+  const {
+    activePreset,
+    profile,
+    hydrate,
+    completeOnboarding,
+    setSensitivity,
+    setLocationField,
+    applyCurrentLocation,
+    setActivePreset,
+    submitFeedback
+  } = useWoditStore();
 
   useEffect(() => {
-    useWoditStore.getState().hydrate();
-  }, []);
+    hydrate(user);
+  }, [hydrate, user]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
       return;
     }
 
-    window.localStorage.setItem(storageKey, JSON.stringify(preference));
-  }, [preference]);
+    window.localStorage.setItem(profileStorageKey(user.email), JSON.stringify(profile));
+  }, [profile, user.email]);
+
+  if (!profile.onboardingCompleted) {
+    return (
+      <main className="relative min-h-screen overflow-hidden px-4 py-10 text-slate-900 sm:px-8">
+        <div className="mesh" />
+        <OnboardingCard
+          user={user}
+          profile={profile}
+          completeOnboarding={completeOnboarding}
+        />
+      </main>
+    );
+  }
 
   const weather = demoWeatherPresets[activePreset];
-  const result = buildRecommendation(weather, preference);
-  const summary = createWeatherSummary(weather, result.subjectiveTemp, preference.nickname);
+  const result = buildRecommendation(weather, profile);
+  const summary = createWeatherSummary(weather, result.subjectiveTemp, profile.nickname);
 
   return (
     <main className="relative min-h-screen overflow-hidden px-4 py-10 text-slate-900 sm:px-8">
@@ -118,22 +292,25 @@ export function WoditDashboard() {
                   Subjective Weather Styling
                 </p>
                 <h1 className="font-display text-4xl font-semibold tracking-tight sm:text-5xl">
-                  오늘 기온보다, 당신이 느끼는 온도에 맞춥니다.
+                  Dress for how you feel, not just what the forecast says.
                 </h1>
                 <p className="max-w-lg text-sm leading-6 text-slate-800 sm:text-base">
                   {summary}
                 </p>
               </div>
-              <div className="rounded-[1.5rem] bg-slate-950/80 px-5 py-4 text-white">
-                <p className="text-xs uppercase tracking-[0.28em] text-white/60">
-                  Subjective Temp
-                </p>
-                <p className="mt-2 text-4xl font-semibold">
-                  {result.subjectiveTemp.toFixed(1)}°C
-                </p>
-                <p className="mt-1 text-sm text-white/70">
-                  실제 {weather.tempC}°C / 보정 {preference.offset.toFixed(1)}°C
-                </p>
+              <div className="flex flex-col items-end gap-3">
+                <SignOutButton />
+                <div className="rounded-[1.5rem] bg-slate-950/80 px-5 py-4 text-white">
+                  <p className="text-xs uppercase tracking-[0.28em] text-white/60">
+                    Subjective Temp
+                  </p>
+                  <p className="mt-2 text-4xl font-semibold">
+                    {result.subjectiveTemp.toFixed(1)}C
+                  </p>
+                  <p className="mt-1 text-sm text-white/70">
+                    Actual {weather.tempC}C / Offset {profile.offset.toFixed(1)}C
+                  </p>
+                </div>
               </div>
             </div>
 
@@ -150,9 +327,9 @@ export function WoditDashboard() {
                   }`}
                 >
                   <p className="text-xs uppercase tracking-[0.24em] opacity-70">{preset.label}</p>
-                  <p className="mt-2 text-xl font-semibold">{preset.tempC}°C</p>
+                  <p className="mt-2 text-xl font-semibold">{preset.tempC}C</p>
                   <p className="mt-1 text-sm">
-                    {preset.precipitationMm > 0 ? "비 가능성 있음" : "강수 없음"} / 풍속{" "}
+                    {preset.precipitationMm > 0 ? "Rain expected" : "Dry"} / Wind{" "}
                     {preset.windSpeedMs}m/s
                   </p>
                 </button>
@@ -177,7 +354,7 @@ export function WoditDashboard() {
                   </div>
                   <div>
                     <p className="text-xs uppercase tracking-[0.22em] text-slate-500">
-                      Bottom / Shoes / Extras
+                      Bottom / Extras
                     </p>
                     <ul className="mt-3 space-y-2 text-base">
                       {[...result.outfit.bottom, ...result.outfit.extras].map((item) => (
@@ -220,15 +397,15 @@ export function WoditDashboard() {
           className="glass rounded-[2rem] p-6 shadow-panel"
         >
           <p className="text-sm font-semibold uppercase tracking-[0.24em] text-slate-600">
-            Personal Tuning
+            Personal Controls
           </p>
           <div className="mt-5 space-y-7">
             <div>
               <div className="flex items-center justify-between">
-                <p className="text-lg font-semibold">추위/더위 민감도</p>
+                <p className="text-lg font-semibold">Sensitivity</p>
                 <span className="rounded-full bg-slate-950 px-3 py-1 text-sm text-white">
-                  {preference.sensitivity > 0 ? "+" : ""}
-                  {preference.sensitivity}
+                  {profile.sensitivity > 0 ? "+" : ""}
+                  {profile.sensitivity}
                 </span>
               </div>
               <input
@@ -237,25 +414,65 @@ export function WoditDashboard() {
                 min={-5}
                 max={5}
                 step={1}
-                value={preference.sensitivity}
+                value={profile.sensitivity}
                 onChange={(event) => setSensitivity(Number(event.target.value))}
               />
               <p className="mt-3 text-sm leading-6 text-slate-700">
-                음수는 더위를 잘 타는 편, 양수는 추위를 잘 타는 편입니다. 추위를 잘 탈수록
-                체감 온도는 더 낮게 계산됩니다.
+                Negative means you get warm easily. Positive means you get cold easily.
+              </p>
+            </div>
+
+            <div className="rounded-[1.5rem] bg-white/60 p-4">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-lg font-semibold">Latitude / Longitude</p>
+                <button
+                  type="button"
+                  onClick={() => void applyCurrentLocation()}
+                  className="rounded-full bg-slate-950 px-3 py-2 text-xs font-semibold text-white transition hover:bg-slate-800"
+                >
+                  Use current location
+                </button>
+              </div>
+              <p className="mt-2 text-sm leading-6 text-slate-700">
+                These coordinates stay editable directly from the main page at any time.
+              </p>
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                <label className="text-sm font-medium text-slate-700">
+                  Latitude
+                  <input
+                    className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-950"
+                    type="number"
+                    step="0.0001"
+                    value={profile.location.lat}
+                    onChange={(event) => setLocationField("lat", Number(event.target.value))}
+                  />
+                </label>
+                <label className="text-sm font-medium text-slate-700">
+                  Longitude
+                  <input
+                    className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-950"
+                    type="number"
+                    step="0.0001"
+                    value={profile.location.lng}
+                    onChange={(event) => setLocationField("lng", Number(event.target.value))}
+                  />
+                </label>
+              </div>
+              <p className="mt-3 text-sm text-slate-700">
+                Active coordinates: {formatCoordinates(profile.location)}
               </p>
             </div>
 
             <div>
-              <p className="text-lg font-semibold">피드백 학습</p>
+              <p className="text-lg font-semibold">Feedback Loop</p>
               <p className="mt-2 text-sm leading-6 text-slate-700">
-                외출 후 느낌을 남기면 보정치가 누적되어 다음 추천 정확도가 올라갑니다.
+                Use feedback after going outside to adjust the learned offset.
               </p>
               <div className="mt-4 grid grid-cols-3 gap-2">
                 {[
-                  { label: "추웠어요", value: "TOO_COLD" },
-                  { label: "딱 좋아요", value: "GOOD" },
-                  { label: "더웠어요", value: "TOO_HOT" }
+                  { label: "Too cold", value: "TOO_COLD" },
+                  { label: "Just right", value: "GOOD" },
+                  { label: "Too hot", value: "TOO_HOT" }
                 ].map((action) => (
                   <button
                     key={action.value}
@@ -268,7 +485,7 @@ export function WoditDashboard() {
                 ))}
               </div>
               <p className="mt-3 text-sm text-slate-700">
-                현재 학습 오프셋: {preference.offset.toFixed(1)}°C
+                Learned offset: {profile.offset.toFixed(1)}C
               </p>
             </div>
 

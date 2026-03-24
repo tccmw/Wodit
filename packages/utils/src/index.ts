@@ -1,4 +1,5 @@
 import type {
+  Coordinates,
   FeedbackStatus,
   MusicMood,
   OutfitRecommendation,
@@ -72,42 +73,42 @@ export function recommendOutfit(
 
   if (subjectiveTemp <= 0) {
     outfit = {
-      top: ["패딩", "목도리", "내의"],
-      bottom: ["기모 바지", "부츠"],
-      extras: ["핫팩"]
+      top: ["Padded jacket", "Scarf", "Heattech layer"],
+      bottom: ["Fleece pants", "Boots"],
+      extras: ["Hand warmer"]
     };
   } else if (subjectiveTemp <= 10) {
     outfit = {
-      top: ["코트", "자켓", "니트"],
-      bottom: ["슬랙스", "운동화"],
+      top: ["Coat", "Jacket", "Knit"],
+      bottom: ["Slacks", "Sneakers"],
       extras: []
     };
   } else if (subjectiveTemp <= 17) {
     outfit = {
-      top: ["가디건", "얇은 자켓"],
-      bottom: ["청바지", "면바지"],
+      top: ["Cardigan", "Light jacket"],
+      bottom: ["Jeans", "Cotton pants"],
       extras: []
     };
   } else if (subjectiveTemp <= 23) {
     outfit = {
-      top: ["셔츠", "가벼운 니트"],
-      bottom: ["면바지", "로퍼"],
+      top: ["Shirt", "Light knit"],
+      bottom: ["Cotton pants", "Loafers"],
       extras: []
     };
   } else {
     outfit = {
-      top: ["반팔 티셔츠", "린넨 셔츠"],
-      bottom: ["반바지", "샌들"],
+      top: ["Short-sleeve tee", "Linen shirt"],
+      bottom: ["Shorts", "Sandals"],
       extras: []
     };
   }
 
   if (weather.precipitationMm > 0) {
-    outfit.extras.push("우산", "방수 신발");
+    outfit.extras.push("Umbrella", "Waterproof shoes");
   }
 
   if (weather.uvIndex >= 7) {
-    outfit.extras.push("선글라스", "모자");
+    outfit.extras.push("Sunglasses", "Cap");
   }
 
   return outfit;
@@ -120,7 +121,7 @@ export function recommendMusicMood(
   if (weather.condition === "rain") {
     return {
       title: "Rain Glass",
-      description: "비 오는 이동 시간에 맞는 다운템포, 로파이, 재즈 팝 무드입니다.",
+      description: "Muted lo-fi, jazz pop, and soft indie tracks for a rainy commute.",
       seedGenres: ["lofi", "jazz", "indie"]
     };
   }
@@ -128,7 +129,7 @@ export function recommendMusicMood(
   if (subjectiveTemp <= 10) {
     return {
       title: "Soft Layers",
-      description: "코트와 니트에 어울리는 차분한 시티팝과 앰비언트 팝 계열입니다.",
+      description: "City pop, ambient pop, and soul that pair well with coats and knit layers.",
       seedGenres: ["city-pop", "ambient", "soul"]
     };
   }
@@ -136,14 +137,14 @@ export function recommendMusicMood(
   if (subjectiveTemp >= 23) {
     return {
       title: "Sunlit Sprint",
-      description: "가벼운 옷차림과 잘 맞는 청량한 팝, 펑크, 댄스 트랙 중심입니다.",
+      description: "Bright pop, funk, and dance tracks that fit a lighter warm-weather outfit.",
       seedGenres: ["dance", "funk", "pop"]
     };
   }
 
   return {
     title: "Easy Tempo",
-    description: "셔츠와 가디건 사이 계절감을 살리는 인디 팝과 네오 소울 기반 무드입니다.",
+    description: "Indie pop, neo soul, and smooth R&B for mild in-between weather.",
     seedGenres: ["indie-pop", "neo-soul", "rnb"]
   };
 }
@@ -170,25 +171,29 @@ export function createWeatherSummary(
   subjectiveTemp: number,
   nickname: string
 ) {
-  return `현재 온도는 ${weather.tempC}°C지만 ${nickname}의 맞춤 체감 온도는 ${subjectiveTemp.toFixed(
+  return `The current air temperature is ${weather.tempC}C, but ${nickname}'s personalized temperature reads ${subjectiveTemp.toFixed(
     1
-  )}°C입니다. ${describeRecommendation(subjectiveTemp, weather)}`;
+  )}C. ${describeRecommendation(subjectiveTemp, weather)}`;
 }
 
 function describeRecommendation(subjectiveTemp: number, weather: WeatherSnapshot) {
   const thermalNote =
     subjectiveTemp <= 10
-      ? "보온 중심 레이어링이 유리합니다."
+      ? "A warmth-first layered outfit is the safer choice."
       : subjectiveTemp >= 23
-        ? "통기성 좋은 가벼운 조합이 적합합니다."
-        : "실내외 온도차를 고려한 가벼운 레이어링이 적절합니다.";
+        ? "A breathable, lighter outfit is the better fit."
+        : "A light layered outfit should cover indoor and outdoor temperature swings.";
 
   const weatherNote =
     weather.precipitationMm > 0
-      ? "강수가 있어 우산과 방수 신발을 포함했습니다."
+      ? "Rain gear was added because precipitation is expected."
       : weather.uvIndex >= 7
-        ? "자외선이 강해 모자와 선글라스를 추가했습니다."
-        : "기본 데일리 조합으로 무리가 없습니다.";
+        ? "Sun protection was added because the UV index is high."
+        : "A standard daily outfit should work without extra gear.";
 
   return `${thermalNote} ${weatherNote}`;
+}
+
+export function formatCoordinates(location: Coordinates) {
+  return `${location.lat.toFixed(4)}, ${location.lng.toFixed(4)}`;
 }

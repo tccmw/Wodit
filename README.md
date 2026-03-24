@@ -26,6 +26,9 @@ pnpm dev
 
 ## MVP scope
 
+- Google OAuth sign-in flow
+- first-login sensitivity onboarding
+- main-page latitude/longitude controls that stay editable
 - local preference storage for sensitivity and feedback offset
 - subjective temperature calculation
 - rule-based outfit recommendations
@@ -34,6 +37,7 @@ pnpm dev
 
 ## Next steps
 
-1. Connect `apps/web` to browser geolocation and OpenWeatherMap.
-2. Persist onboarding, feedback, and auth in PostgreSQL with Prisma.
-3. Add Spotify playlist search based on `musicMood`.
+1. Add `.env.local` from `.env.example` and set Google OAuth credentials.
+2. Connect `apps/web` to browser geolocation and OpenWeatherMap using the editable coordinates.
+3. Persist onboarding, feedback, coordinates, and auth in PostgreSQL with Prisma.
+4. Add Spotify playlist search based on `musicMood`.
