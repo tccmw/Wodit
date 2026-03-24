@@ -8,13 +8,15 @@ import { WeatherService } from "../weather/weather.service";
 import { buildRecommendation } from "../../../../../packages/utils/src";
 import { UsersService } from "../users/users.service";
 import { SpotifyService } from "../spotify/spotify.service";
+import { OutfitCatalogService } from "../outfit/outfit-catalog.service";
 
 @Injectable()
 export class RecommendationService {
   constructor(
     private readonly weatherService: WeatherService,
     private readonly usersService: UsersService,
-    private readonly spotifyService: SpotifyService
+    private readonly spotifyService: SpotifyService,
+    private readonly outfitCatalogService: OutfitCatalogService
   ) {}
 
   recommend({ weather, preference }: RecommendationRequestDto) {
@@ -24,6 +26,7 @@ export class RecommendationService {
   async recommendByLocation({
     email,
     location,
+    variant = 0,
     preference
   }: RecommendationContext): Promise<WeatherRecommendationResponse> {
     const persistedProfile = email
@@ -39,7 +42,14 @@ export class RecommendationService {
 
     try {
       const weather = await this.weatherService.getWeatherByCoordinates(location);
-      const recommendation = buildRecommendation(weather, resolvedPreference);
+      const recommendation = buildRecommendation(weather, resolvedPreference, variant);
+      const catalogOutfit = await this.outfitCatalogService.buildOutfit(
+        recommendation.subjectiveTemp,
+        weather,
+        variant
+      );
+      recommendation.outfit = catalogOutfit.outfit;
+      recommendation.lookHeadline = catalogOutfit.headline;
       const spotify = await this.spotifyService.getPlaylistForMood(
         recommendation.musicMood,
         weather
@@ -47,6 +57,7 @@ export class RecommendationService {
 
       return {
         source: "openweather",
+        variant,
         location,
         weather,
         recommendation,
@@ -54,7 +65,14 @@ export class RecommendationService {
       };
     } catch {
       const weather = this.weatherService.getPreviewWeather("Rainy Commute");
-      const recommendation = buildRecommendation(weather, resolvedPreference);
+      const recommendation = buildRecommendation(weather, resolvedPreference, variant);
+      const catalogOutfit = await this.outfitCatalogService.buildOutfit(
+        recommendation.subjectiveTemp,
+        weather,
+        variant
+      );
+      recommendation.outfit = catalogOutfit.outfit;
+      recommendation.lookHeadline = catalogOutfit.headline;
       const spotify = await this.spotifyService.getPlaylistForMood(
         recommendation.musicMood,
         weather
@@ -62,6 +80,7 @@ export class RecommendationService {
 
       return {
         source: "demo",
+        variant,
         location,
         weather,
         recommendation,

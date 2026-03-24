@@ -43,12 +43,15 @@ export interface MusicMood {
 export interface SpotifyPlaylistPreview {
   provider: "spotify";
   title: string;
+  description: string | null;
   externalUrl: string | null;
   imageUrl: string | null;
+  uri: string | null;
 }
 
 export interface RecommendationResult {
   subjectiveTemp: number;
+  lookHeadline: string;
   reason: string;
   outfit: OutfitRecommendation;
   musicMood: MusicMood;
@@ -56,6 +59,7 @@ export interface RecommendationResult {
 
 export interface WeatherRecommendationResponse {
   source: "openweather" | "demo";
+  variant: number;
   location: Coordinates;
   weather: WeatherSnapshot;
   recommendation: RecommendationResult;
@@ -73,6 +77,23 @@ export interface PersistedUserProfile {
   regionName: string;
   onboardingCompleted: boolean;
   spotifyConnected: boolean;
+}
+
+export interface SpotifyOauthExchangeRequest {
+  email: string;
+  code: string;
+  redirectUri: string;
+}
+
+export interface SpotifyPlayerCommandRequest {
+  email: string;
+  deviceId?: string;
+  contextUri?: string;
+}
+
+export interface SpotifyAuthorizeRequest {
+  redirectUri: string;
+  state?: string;
 }
 
 export interface SyncUserRequest {

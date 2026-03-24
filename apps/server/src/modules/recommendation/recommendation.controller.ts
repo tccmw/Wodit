@@ -18,6 +18,7 @@ export class RecommendationController {
   async recommendByWeather(@Query() query: RecommendationQueryDto) {
     const lat = Number(query.lat);
     const lon = Number(query.lon);
+    const variant = query.variant ? Number(query.variant) : 0;
     const sensitivity = query.sensitivity ? Number(query.sensitivity) : 0;
     const offset = query.offset ? Number(query.offset) : 0;
 
@@ -25,8 +26,8 @@ export class RecommendationController {
       throw new BadRequestException("lat and lon query parameters are required.");
     }
 
-    if (!Number.isFinite(sensitivity) || !Number.isFinite(offset)) {
-      throw new BadRequestException("sensitivity and offset must be numbers.");
+    if (!Number.isFinite(sensitivity) || !Number.isFinite(offset) || !Number.isFinite(variant)) {
+      throw new BadRequestException("sensitivity, offset, and variant must be numbers.");
     }
 
     return this.recommendationService.recommendByLocation({
@@ -35,6 +36,7 @@ export class RecommendationController {
         lat,
         lng: lon
       },
+      variant,
       preference: {
         sensitivity,
         offset,

@@ -31,6 +31,7 @@ type Store = {
   setSensitivity: (value: number) => void;
   setRegionName: (value: string) => void;
   setLocationField: (field: keyof Coordinates, value: number) => void;
+  applyResolvedLocation: (location: RecentLocation) => void;
   applyCurrentLocation: () => Promise<void>;
   saveRecentLocation: () => void;
   applyRecentLocation: (location: RecentLocation) => void;
@@ -136,6 +137,17 @@ export const useWoditStore = create<Store>((set, get) => ({
           [field]: Number.isFinite(value) ? value : 0
         }
       }
+    })),
+  applyResolvedLocation: (location) =>
+    set((state) => ({
+      profile: {
+        ...state.profile,
+        location: {
+          lat: location.lat,
+          lng: location.lng
+        }
+      },
+      regionName: location.name
     })),
   applyCurrentLocation: async () => {
     if (typeof window === "undefined" || !navigator.geolocation) return;

@@ -49,8 +49,35 @@ model Feedback {
   user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
+model OutfitItem {
+  id          String         @id @default(cuid())
+  name        String
+  category    OutfitCategory
+  thermalBand ThermalBand
+  weight      Int            @default(1)
+  rainOnly    Boolean        @default(false)
+  uvOnly      Boolean        @default(false)
+  styleTag    String?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+}
+
 enum FeedbackStatus {
   TOO_COLD
   GOOD
   TOO_HOT
+}
+
+enum OutfitCategory {
+  TOP
+  BOTTOM
+  EXTRA
+}
+
+enum ThermalBand {
+  FREEZING
+  COLD
+  COOL
+  MILD
+  WARM
 }

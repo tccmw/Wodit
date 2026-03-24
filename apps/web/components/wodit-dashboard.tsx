@@ -35,8 +35,7 @@ export function WoditDashboard({ user }: { user: DashboardUser }) {
     applyRemoteProfile,
     completeOnboarding,
     setSensitivity,
-    setRegionName,
-    setLocationField,
+    applyResolvedLocation,
     applyCurrentLocation,
     saveRecentLocation,
     applyRecentLocation,
@@ -44,6 +43,15 @@ export function WoditDashboard({ user }: { user: DashboardUser }) {
   } = useWoditStore();
   const [sheetOpen, setSheetOpen] = useState(false);
   const [musicOpen, setMusicOpen] = useState(false);
+  const [outfitVariant, setOutfitVariant] = useState(0);
+  const [spotifyConnected, setSpotifyConnected] = useState(false);
+  const [musicBarState, setMusicBarState] = useState<{
+    title: string;
+    playing: boolean;
+  }>({
+    title: "추천 플레이리스트",
+    playing: false
+  });
   const [liveData, setLiveData] = useState<WeatherRecommendationResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -71,7 +79,9 @@ export function WoditDashboard({ user }: { user: DashboardUser }) {
         });
 
         if (!response.ok) return;
-        applyRemoteProfile(await response.json());
+        const syncedProfile = await response.json();
+        applyRemoteProfile(syncedProfile);
+        setSpotifyConnected(Boolean(syncedProfile.spotifyConnected));
       } catch {
         // keep local state when sync is unavailable
       }
@@ -79,6 +89,49 @@ export function WoditDashboard({ user }: { user: DashboardUser }) {
 
     return () => controller.abort();
   }, [applyRemoteProfile, user.email, user.image, user.name]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const url = new URL(window.location.href);
+    const spotifyStatus = url.searchParams.get("spotify");
+    const spotifyDetail = url.searchParams.get("spotify_detail");
+
+    if (!spotifyStatus) return;
+
+    const controller = new AbortController();
+
+    void (async () => {
+      try {
+        const response = await fetch(
+          `${apiBase}/users/profile?email=${encodeURIComponent(user.email)}`,
+          {
+            signal: controller.signal
+          }
+        );
+
+        if (!response.ok) return;
+
+        const persistedProfile = await response.json();
+        if (persistedProfile) {
+          applyRemoteProfile(persistedProfile);
+          setSpotifyConnected(Boolean(persistedProfile.spotifyConnected));
+        }
+
+        if (spotifyStatus === "connect_failed") {
+          setError(spotifyDetail || "Spotify 연결에 실패했습니다.");
+        }
+      } catch {
+        // keep current state when profile refresh fails
+      } finally {
+        url.searchParams.delete("spotify");
+        url.searchParams.delete("spotify_detail");
+        window.history.replaceState({}, "", url.pathname + url.search + url.hash);
+      }
+    })();
+
+    return () => controller.abort();
+  }, [applyRemoteProfile, user.email]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -144,6 +197,7 @@ export function WoditDashboard({ user }: { user: DashboardUser }) {
           email: user.email,
           lat: String(profile.location.lat),
           lon: String(profile.location.lng),
+          variant: String(outfitVariant),
           sensitivity: String(profile.sensitivity),
           offset: String(profile.offset),
           nickname: profile.nickname
@@ -159,6 +213,13 @@ export function WoditDashboard({ user }: { user: DashboardUser }) {
 
         const data = (await response.json()) as WeatherRecommendationResponse;
         setLiveData(data);
+        setMusicBarState((current) => ({
+          title:
+            data.spotify?.title ??
+            data.recommendation.musicMood.title ??
+            current.title,
+          playing: current.playing
+        }));
       } catch (fetchError) {
         if (!controller.signal.aborted) {
           setError(
@@ -184,7 +245,9 @@ export function WoditDashboard({ user }: { user: DashboardUser }) {
     profile.nickname,
     profile.offset,
     profile.onboardingCompleted,
-    profile.sensitivity
+    profile.sensitivity,
+    outfitVariant,
+    user.email
   ]);
 
   if (!profile.onboardingCompleted) {
@@ -252,9 +315,9 @@ export function WoditDashboard({ user }: { user: DashboardUser }) {
               onClick={() => setMusicOpen(true)}
               className="rain-glass-chip"
             >
-              {"Music "}
-              {recommendation?.musicMood.title ??
-                "\uCD94\uCC9C \uD50C\uB808\uC774\uB9AC\uC2A4\uD2B8"}
+              {musicBarState.playing ? "재생 중" : "Playlist"}
+              {" · "}
+              {musicBarState.title}
             </button>
             <SignOutButton />
           </div>
@@ -325,10 +388,10 @@ export function WoditDashboard({ user }: { user: DashboardUser }) {
                     {"\uC624\uB298\uC758 \uCF54\uB514"}
                   </h2>
                 </div>
-                <div className="rounded-full bg-white/10 px-3 py-2 text-xs text-white/68">
-                  {getThemeMode(weather?.condition)}
-                </div>
               </div>
+              <p className="mt-4 text-sm text-white/68">
+                {recommendation?.lookHeadline ?? getThemeMode(weather?.condition)}
+              </p>
 
               <div className="mt-6">
                 <LookbookCanvas items={lookbookItems} />
@@ -350,6 +413,13 @@ export function WoditDashboard({ user }: { user: DashboardUser }) {
                 </div>
 
                 <div className="flex flex-wrap items-center justify-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setOutfitVariant((current) => current + 1)}
+                    className="rounded-full bg-[linear-gradient(180deg,rgba(120,170,255,0.24),rgba(87,125,222,0.18))] px-5 py-3 text-sm font-medium text-sky-50 transition hover:bg-[linear-gradient(180deg,rgba(120,170,255,0.32),rgba(87,125,222,0.24))]"
+                  >
+                    다음 코디
+                  </button>
                   <button
                     type="button"
                     onClick={() => {
@@ -462,8 +532,27 @@ export function WoditDashboard({ user }: { user: DashboardUser }) {
         recentLocations={recentLocations}
         onClose={() => setSheetOpen(false)}
         onCurrentLocation={() => void applyCurrentLocation()}
-        onRegionNameChange={setRegionName}
-        onLocationFieldChange={setLocationField}
+        onSearchAddress={async (query) => {
+          const response = await fetch(
+            `${apiBase}/weather/geocode?q=${encodeURIComponent(query)}`
+          );
+
+          if (!response.ok) {
+            throw new Error("주소를 찾지 못했습니다.");
+          }
+
+          const data = (await response.json()) as {
+            name: string;
+            lat: number;
+            lng: number;
+          };
+
+          applyResolvedLocation({
+            name: data.name,
+            lat: data.lat,
+            lng: data.lng
+          });
+        }}
         onApplyRecent={applyRecentLocation}
         onSave={() => {
           saveRecentLocation();
@@ -473,8 +562,11 @@ export function WoditDashboard({ user }: { user: DashboardUser }) {
 
       <MusicModal
         open={musicOpen}
+        userEmail={user.email}
+        spotifyConnected={spotifyConnected}
         musicMood={recommendation?.musicMood}
         spotify={liveData?.spotify}
+        onPlaybackMetaChange={setMusicBarState}
         onClose={() => setMusicOpen(false)}
       />
     </main>
@@ -502,6 +594,7 @@ export function WoditDashboard({ user }: { user: DashboardUser }) {
 
       const data = (await response.json()) as SubmitFeedbackResponse;
       applyRemoteProfile(data.profile);
+      setSpotifyConnected(Boolean(data.profile.spotifyConnected));
     } catch {
       // keep local optimistic feedback when API fails
     }

@@ -10,6 +10,15 @@ export class WeatherController {
     return this.weatherService.getPreviewWeather(preset);
   }
 
+  @Get("geocode")
+  async geocode(@Query("q") query?: string) {
+    if (!query?.trim()) {
+      throw new BadRequestException("q query parameter is required.");
+    }
+
+    return this.weatherService.geocodeAddress(query);
+  }
+
   @Get()
   async byCoordinates(@Query("lat") lat?: string, @Query("lon") lon?: string) {
     const latitude = Number(lat);

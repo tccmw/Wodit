@@ -47,6 +47,81 @@ export class WeatherService {
     };
   }
 
+  async geocodeAddress(query: string) {
+    const normalized = query.trim();
+
+    if (!normalized) {
+      throw new ServiceUnavailableException("Address query is required.");
+    }
+
+    if (!this.apiKey) {
+      const fallback = this.getFallbackLocation(normalized);
+      if (fallback) {
+        return fallback;
+      }
+
+      throw new ServiceUnavailableException("OPENWEATHER_API_KEY is not configured.");
+    }
+
+    const url = new URL("https://api.openweathermap.org/geo/1.0/direct");
+    url.searchParams.set("q", normalized);
+    url.searchParams.set("limit", "5");
+    url.searchParams.set("appid", this.apiKey);
+
+    const response = await fetch(url);
+
+    if (!response.ok) {
+      const fallback = this.getFallbackLocation(normalized);
+      if (fallback) {
+        return fallback;
+      }
+
+      throw new ServiceUnavailableException("Failed to geocode address from OpenWeather.");
+    }
+
+    const results = (await response.json()) as OpenWeatherGeocodeResponse[];
+    const first = results[0];
+
+    if (!first) {
+      const fallback = this.getFallbackLocation(normalized);
+      if (fallback) {
+        return fallback;
+      }
+
+      throw new ServiceUnavailableException("No matching address was found.");
+    }
+
+    return {
+      name: [first.name, first.state, first.country].filter(Boolean).join(", "),
+      lat: Number(first.lat.toFixed(6)),
+      lng: Number(first.lon.toFixed(6))
+    };
+  }
+
+  private getFallbackLocation(query: string) {
+    const lowered = query.toLowerCase();
+
+    const matches = [
+      { keys: ["서울", "seoul"], name: "서울특별시", lat: 37.5665, lng: 126.978 },
+      { keys: ["대전", "daejeon"], name: "대전광역시", lat: 36.3504, lng: 127.3845 },
+      { keys: ["부산", "busan"], name: "부산광역시", lat: 35.1796, lng: 129.0756 },
+      { keys: ["대구", "daegu"], name: "대구광역시", lat: 35.8714, lng: 128.6014 },
+      { keys: ["광주", "gwangju"], name: "광주광역시", lat: 35.1595, lng: 126.8526 },
+      { keys: ["인천", "incheon"], name: "인천광역시", lat: 37.4563, lng: 126.7052 },
+      { keys: ["제주", "jeju"], name: "제주시", lat: 33.4996, lng: 126.5312 }
+    ].find((candidate) => candidate.keys.some((key) => lowered.includes(key)));
+
+    if (!matches) {
+      return null;
+    }
+
+    return {
+      name: matches.name,
+      lat: matches.lat,
+      lng: matches.lng
+    };
+  }
+
   private mapCondition(condition?: string): WeatherSnapshot["condition"] {
     const normalized = condition?.toLowerCase();
 
@@ -90,6 +165,14 @@ export class WeatherService {
     return 2;
   }
 }
+
+type OpenWeatherGeocodeResponse = {
+  name: string;
+  state?: string;
+  country?: string;
+  lat: number;
+  lon: number;
+};
 
 type OpenWeatherCurrentResponse = {
   name?: string;

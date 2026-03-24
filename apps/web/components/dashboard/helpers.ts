@@ -31,15 +31,9 @@ export function buildLookbookItems(data: WeatherRecommendationResponse | null) {
     return ["\uCF54\uD2B8", "\uC2AC\uB799\uC2A4", "\uBC29\uC218 \uC288\uC988"];
   }
 
-  const outer = data.recommendation.outfit.top[0] ?? "\uCF54\uD2B8";
-  const baseTop =
-    data.recommendation.outfit.top[1] ??
-    data.recommendation.outfit.top[0] ??
-    "\uB2C8\uD2B8";
-  const bottomOrExtra =
-    data.recommendation.outfit.bottom[0] ??
-    data.recommendation.outfit.extras[0] ??
-    "\uBC29\uC218 \uC288\uC988";
-
-  return [outer, baseTop, bottomOrExtra];
+  return [
+    ...data.recommendation.outfit.top,
+    ...data.recommendation.outfit.bottom,
+    ...data.recommendation.outfit.extras
+  ].filter((item, index, list) => list.indexOf(item) === index);
 }
